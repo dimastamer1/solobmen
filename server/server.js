@@ -3,7 +3,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
-const captchaRoutes = require('./routes/captcha');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,8 +22,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://solobmen.onrender.com',
-    'https://your-frontend-domain.com'
+    'https://solobmen.onrender.com'
   ],
   methods: ['GET', 'POST', 'OPTIONS']
 }));
@@ -33,8 +31,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Маршруты API
-app.use('/captcha', captchaRoutes);
+// Маршруты
+app.get('/api/rate', (req, res) => {
+  res.json({ rate: (Math.random() * (178.02 - 160.03) + 160.03).toFixed(2) });
+});
 
 // Обработка статических файлов
 app.set('views', path.join(__dirname, '../views'));

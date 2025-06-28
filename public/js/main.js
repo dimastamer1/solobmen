@@ -1,19 +1,28 @@
-// Конфигурация
 const API_BASE_URL = 'https://solobmen.onrender.com';
 
 // Состояние приложения
 let rate = getRandomRate();
-let captchaPassed = localStorage.getItem('captchaPassed') === 'true' || false;
+let balances = {
+  sol: 0,
+  usdt: 0
+};
 
 // DOM элементы
 const elements = {
+  rateDisplay: document.getElementById('rate'),
+  depositBtn: document.getElementById('depositBtn'),
+  withdrawSolBtn: document.getElementById('withdrawSolBtn'),
+  withdrawUsdtBtn: document.getElementById('withdrawUsdtBtn'),
+  buySolBtn: document.getElementById('buySolBtn'),
+  sellSolBtn: document.getElementById('sellSolBtn'),
+  buyUsdtBtn: document.getElementById('buyUsdtBtn'),
+  sellUsdtBtn: document.getElementById('sellUsdtBtn'),
+  solBalanceDisplay: document.getElementById('solBalance'),
+  usdtBalanceDisplay: document.getElementById('usdtBalance'),
   captchaModal: document.getElementById('captchaModal'),
   captchaForm: document.getElementById('captchaForm'),
   captchaAnswer: document.getElementById('captchaAnswer'),
-  captchaQuestion: document.getElementById('captchaQuestion'),
-  totalPasses: document.getElementById('totalPasses'),
-  rateDisplay: document.getElementById('rate'),
-  depositBtn: document.getElementById('depositBtn')
+  captchaQuestion: document.getElementById('captchaQuestion')
 };
 
 // Инициализация приложения
@@ -22,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
   startRateUpdates();
 });
 
-// Основные функции
 function getRandomRate() {
   return (Math.random() * (178.02 - 160.03) + 160.03).toFixed(2);
 }
@@ -31,98 +39,106 @@ function initApp() {
   setupEventListeners();
   updateUI();
   
-  // Показываем капчу если не пройдена
-  if (!captchaPassed) {
-    showCaptcha();
+  // Проверяем localStorage для балансов
+  const savedBalances = JSON.parse(localStorage.getItem('balances'));
+  if (savedBalances) {
+    balances = savedBalances;
+    updateBalances();
   }
   
-  // Загружаем статистику
-  updateStats();
+  // Показываем капчу если не пройдена
+  if (!localStorage.getItem('captchaPassed')) {
+    showCaptcha();
+  }
+}
+
+function setupEventListeners() {
+  // Кнопки операций
+  elements.depositBtn?.addEventListener('click', handleDeposit);
+  elements.withdrawSolBtn?.addEventListener('click', () => handleWithdraw('sol'));
+  elements.withdrawUsdtBtn?.addEventListener('click', () => handleWithdraw('usdt'));
+  elements.buySolBtn?.addEventListener('click', () => handleTrade('buy', 'sol'));
+  elements.sellSolBtn?.addEventListener('click', () => handleTrade('sell', 'sol'));
+  elements.buyUsdtBtn?.addEventListener('click', () => handleTrade('buy', 'usdt'));
+  elements.sellUsdtBtn?.addEventListener('click', () => handleTrade('sell', 'usdt'));
+  
+  // Капча
+  elements.captchaForm?.addEventListener('submit', handleCaptchaSubmit);
+  
+  // Закрытие модальных окон
+  document.querySelectorAll('.close-modal').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.add('hidden');
+      });
+    });
+  });
 }
 
 function updateUI() {
-  // Всегда показываем основной контент
-  document.querySelectorAll('.auth-only, .guest-only').forEach(el => {
-    el.style.display = 'block';
-  });
+  updateBalances();
   
   if (elements.rateDisplay) {
     elements.rateDisplay.textContent = `${rate} USDT`;
   }
 }
 
-function setupEventListeners() {
-  // Форма капчи
-  if (elements.captchaForm) {
-    elements.captchaForm.addEventListener('submit', handleCaptchaSubmit);
+function updateBalances() {
+  if (elements.solBalanceDisplay) {
+    elements.solBalanceDisplay.textContent = balances.sol.toFixed(4);
   }
-  
-  // Кнопка депозита
-  if (elements.depositBtn) {
-    elements.depositBtn.addEventListener('click', () => {
-      window.location.href = '/deposit';
-    });
+  if (elements.usdtBalanceDisplay) {
+    elements.usdtBalanceDisplay.textContent = balances.usdt.toFixed(2);
   }
-  
-  // Закрытие модальных окон
-  const closeModalButtons = document.querySelectorAll('.close-modal');
-  closeModalButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (elements.captchaModal) elements.captchaModal.classList.add('hidden');
-    });
-  });
-  
-  // Клик вне модального окна
-  window.addEventListener('click', (e) => {
-    if (elements.captchaModal && e.target === elements.captchaModal) {
-      elements.captchaModal.classList.add('hidden');
-    }
-  });
+  localStorage.setItem('balances', JSON.stringify(balances));
 }
 
-// Обработчики капчи
+// Обработчики действий
+function handleDeposit() {
+  showModal('depositModal');
+}
+
+function handleWithdraw(currency) {
+  if (balances[currency] <= 0) {
+    showToast(`You don't have enough ${currency.toUpperCase()} to withdraw`);
+    return;
+  }
+  showModal(`${currency}WithdrawModal`);
+}
+
+function handleTrade(action, currency) {
+  const baseCurrency = currency === 'sol' ? 'USDT' : 'SOL';
+  const targetCurrency = currency === 'sol' ? 'SOL' : 'USDT';
+  
+  if (action === 'buy' && balances[currency === 'sol' ? 'usdt' : 'sol'] <= 0) {
+    showToast(`You need to deposit ${baseCurrency} to buy ${targetCurrency}`);
+    return;
+  }
+  
+  if (action === 'sell' && balances[currency] <= 0) {
+    showToast(`You don't have enough ${targetCurrency} to sell`);
+    return;
+  }
+  
+  showModal(`${action}${currency}Modal`);
+}
+
 async function handleCaptchaSubmit(e) {
   e.preventDefault();
-  
   const answer = elements.captchaAnswer.value.trim();
   
-  try {
-    const response = await fetch(`${API_BASE_URL}/captcha/verify`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ answer })
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      captchaPassed = true;
-      localStorage.setItem('captchaPassed', 'true');
-      showToast('Captcha passed!');
-      if (elements.captchaModal) elements.captchaModal.classList.add('hidden');
-      updateStats();
-    } else {
-      showToast(data.message || 'Wrong answer', 'error');
-    }
-  } catch (error) {
-    console.error('Captcha error:', error);
-    showToast('Connection error', 'error');
+  if (answer === "12") {
+    localStorage.setItem('captchaPassed', 'true');
+    showToast('Verification successful!');
+    elements.captchaModal.classList.add('hidden');
+  } else {
+    showToast('Wrong answer, try again', 'error');
   }
 }
 
-async function updateStats() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/captcha/stats`);
-    const data = await response.json();
-    
-    if (data.success && elements.totalPasses) {
-      elements.totalPasses.textContent = data.totalPasses;
-    }
-  } catch (error) {
-    console.error('Failed to get stats:', error);
-  }
+// Вспомогательные функции
+function showModal(modalId) {
+  document.getElementById(modalId)?.classList.remove('hidden');
 }
 
 function showCaptcha() {
@@ -134,7 +150,18 @@ function showCaptcha() {
   }
 }
 
-// Функции для работы с курсом
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+}
+
+// Обновление курса
 function startRateUpdates() {
   updateRate();
   setInterval(updateRate, 5000);
@@ -145,16 +172,4 @@ function updateRate() {
   if (elements.rateDisplay) {
     elements.rateDisplay.textContent = `${rate} USDT`;
   }
-}
-
-// Вспомогательные функции
-function showToast(message, type = 'success') {
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
 }
