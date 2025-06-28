@@ -3,29 +3,17 @@ const API_BASE_URL = 'https://solobmen.onrender.com';
 
 // Состояние приложения
 let rate = getRandomRate();
-let user = JSON.parse(localStorage.getItem('user')) || null;
+let captchaPassed = localStorage.getItem('captchaPassed') === 'true' || false;
 
 // DOM элементы
 const elements = {
-  // Auth elements
-  loginBtn: document.getElementById('loginBtn'),
-  registerBtn: document.getElementById('registerBtn'),
-  logoutBtn: document.getElementById('logoutBtn'),
-  loginForm: document.getElementById('loginForm'),
-  registerForm: document.getElementById('registerForm'),
-  usernameDisplay: document.getElementById('usernameDisplay'),
-  
-  // UI elements
-  authButtons: document.getElementById('authButtons'),
-  userInfo: document.getElementById('userInfo'),
-  welcomeContent: document.getElementById('welcomeContent'),
-  userContent: document.getElementById('userContent'),
-  loginModal: document.getElementById('loginModal'),
-  registerModal: document.getElementById('registerModal'),
-  depositBtn: document.getElementById('depositBtn'),
-  solBalance: document.getElementById('solBalance'),
-  usdtBalance: document.getElementById('usdtBalance'),
-  rateDisplay: document.getElementById('rate')
+  captchaModal: document.getElementById('captchaModal'),
+  captchaForm: document.getElementById('captchaForm'),
+  captchaAnswer: document.getElementById('captchaAnswer'),
+  captchaQuestion: document.getElementById('captchaQuestion'),
+  totalPasses: document.getElementById('totalPasses'),
+  rateDisplay: document.getElementById('rate'),
+  depositBtn: document.getElementById('depositBtn')
 };
 
 // Инициализация приложения
@@ -42,200 +30,107 @@ function getRandomRate() {
 function initApp() {
   setupEventListeners();
   updateUI();
+  
+  // Показываем капчу если не пройдена
+  if (!captchaPassed) {
+    showCaptcha();
+  }
+  
+  // Загружаем статистику
+  updateStats();
 }
 
 function updateUI() {
-  if (user) {
-    // Показываем элементы для авторизованных пользователей
-    document.querySelectorAll('.auth-only').forEach(el => {
-      el.style.display = 'block';
-    });
-    document.querySelectorAll('.guest-only').forEach(el => {
-      el.style.display = 'none';
-    });
-    
-    // Обновляем информацию пользователя
-    if (elements.usernameDisplay) {
-      elements.usernameDisplay.textContent = user.username;
-    }
-    if (elements.solBalance) {
-      elements.solBalance.textContent = user.solBalance.toFixed(4);
-    }
-    if (elements.usdtBalance) {
-      elements.usdtBalance.textContent = user.usdtBalance.toFixed(2);
-    }
-    if (elements.rateDisplay) {
-      elements.rateDisplay.textContent = `${rate} USDT`;
-    }
-  } else {
-    // Показываем элементы для гостей
-    document.querySelectorAll('.auth-only').forEach(el => {
-      el.style.display = 'none';
-    });
-    document.querySelectorAll('.guest-only').forEach(el => {
-      el.style.display = 'block';
-    });
+  // Всегда показываем основной контент
+  document.querySelectorAll('.auth-only, .guest-only').forEach(el => {
+    el.style.display = 'block';
+  });
+  
+  if (elements.rateDisplay) {
+    elements.rateDisplay.textContent = `${rate} USDT`;
   }
 }
 
 function setupEventListeners() {
-  // Кнопки авторизации
-  if (elements.loginBtn) {
-    elements.loginBtn.addEventListener('click', () => {
-      if (elements.loginModal) elements.loginModal.classList.remove('hidden');
+  // Форма капчи
+  if (elements.captchaForm) {
+    elements.captchaForm.addEventListener('submit', handleCaptchaSubmit);
+  }
+  
+  // Кнопка депозита
+  if (elements.depositBtn) {
+    elements.depositBtn.addEventListener('click', () => {
+      window.location.href = '/deposit';
     });
-  }
-  
-  if (elements.registerBtn) {
-    elements.registerBtn.addEventListener('click', () => {
-      if (elements.registerModal) elements.registerModal.classList.remove('hidden');
-    });
-  }
-  
-  // Формы
-  if (elements.loginForm) {
-    elements.loginForm.addEventListener('submit', handleLogin);
-  }
-  
-  if (elements.registerForm) {
-    elements.registerForm.addEventListener('submit', handleRegister);
-  }
-  
-  // Кнопка выхода
-  if (elements.logoutBtn) {
-    elements.logoutBtn.addEventListener('click', handleLogout);
   }
   
   // Закрытие модальных окон
   const closeModalButtons = document.querySelectorAll('.close-modal');
   closeModalButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      if (elements.loginModal) elements.loginModal.classList.add('hidden');
-      if (elements.registerModal) elements.registerModal.classList.add('hidden');
+      if (elements.captchaModal) elements.captchaModal.classList.add('hidden');
     });
   });
   
   // Клик вне модального окна
   window.addEventListener('click', (e) => {
-    if (elements.loginModal && e.target === elements.loginModal) {
-      elements.loginModal.classList.add('hidden');
-    }
-    if (elements.registerModal && e.target === elements.registerModal) {
-      elements.registerModal.classList.add('hidden');
+    if (elements.captchaModal && e.target === elements.captchaModal) {
+      elements.captchaModal.classList.add('hidden');
     }
   });
-  
-  // Кнопка депозита
-  if (elements.depositBtn) {
-    elements.depositBtn.addEventListener('click', () => {
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-        window.location.href = '/deposit';
-      }
-    });
-  }
 }
 
-// Обработчики авторизации
-async function handleLogin(e) {
+// Обработчики капчи
+async function handleCaptchaSubmit(e) {
   e.preventDefault();
   
-  const formData = new FormData(elements.loginForm);
-  const credentials = {
-    username: formData.get('username'),
-    password: formData.get('password')
-  };
-
+  const answer = elements.captchaAnswer.value.trim();
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/captcha/verify`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(credentials),
-      credentials: 'include'
+      body: JSON.stringify({ answer })
     });
 
     const data = await response.json();
 
     if (data.success) {
-      user = data.user;
-      localStorage.setItem('user', JSON.stringify(user));
-      updateUI();
-      showToast('Login successful!');
-      if (elements.loginModal) elements.loginModal.classList.add('hidden');
+      captchaPassed = true;
+      localStorage.setItem('captchaPassed', 'true');
+      showToast('Captcha passed!');
+      if (elements.captchaModal) elements.captchaModal.classList.add('hidden');
+      updateStats();
     } else {
-      showToast(data.message || 'Login failed', 'error');
+      showToast(data.message || 'Wrong answer', 'error');
     }
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Captcha error:', error);
     showToast('Connection error', 'error');
   }
 }
 
-async function handleRegister(e) {
-  e.preventDefault();
-  
-  const formData = new FormData(elements.registerForm);
-  const userData = {
-    username: formData.get('username'),
-    password: formData.get('password'),
-    confirmPassword: formData.get('confirm_password')
-  };
-
-  if (userData.password !== userData.confirmPassword) {
-    showToast('Passwords do not match', 'error');
-    return;
-  }
-
+async function updateStats() {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: userData.username,
-        password: userData.password
-      }),
-      credentials: 'include'
-    });
-
+    const response = await fetch(`${API_BASE_URL}/captcha/stats`);
     const data = await response.json();
-
-    if (data.success) {
-      user = data.user;
-      localStorage.setItem('user', JSON.stringify(user));
-      updateUI();
-      showToast('Registration successful! You received 0.5 SOL + 10 USDT bonus!');
-      if (elements.registerModal) elements.registerModal.classList.add('hidden');
-    } else {
-      showToast(data.message || 'Registration failed', 'error');
+    
+    if (data.success && elements.totalPasses) {
+      elements.totalPasses.textContent = data.totalPasses;
     }
   } catch (error) {
-    console.error('Registration error:', error);
-    showToast('Connection error', 'error');
+    console.error('Failed to get stats:', error);
   }
 }
 
-async function handleLogout() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: 'GET',
-      credentials: 'include'
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      user = null;
-      localStorage.removeItem('user');
-      updateUI();
-      showToast('Logged out successfully');
+function showCaptcha() {
+  if (elements.captchaModal) {
+    elements.captchaModal.classList.remove('hidden');
+    if (elements.captchaQuestion) {
+      elements.captchaQuestion.textContent = "What is 6 + 6?";
     }
-  } catch (error) {
-    console.error('Logout error:', error);
-    showToast('Logout failed', 'error');
   }
 }
 
@@ -247,7 +142,7 @@ function startRateUpdates() {
 
 function updateRate() {
   rate = getRandomRate();
-  if (user && elements.rateDisplay) {
+  if (elements.rateDisplay) {
     elements.rateDisplay.textContent = `${rate} USDT`;
   }
 }

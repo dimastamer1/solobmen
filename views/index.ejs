@@ -14,13 +14,8 @@
         <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" class="logo">
         <h1>Solana Exchange</h1>
       </div>
-      <div class="auth-buttons" id="authButtons">
-        <button class="btn-secondary" id="loginBtn">Log In</button>
-        <button class="btn-primary" id="registerBtn">Register</button>
-      </div>
-      <div class="user-info hidden" id="userInfo">
-        <span id="usernameDisplay"></span>
-        <button class="btn-logout" id="logoutBtn">Log Out</button>
+      <div class="user-info">
+        <span>Total verifications: <span id="totalPasses">0</span></span>
       </div>
     </header>
 
@@ -29,87 +24,38 @@
       <p>Обменивайте SOL на USDT и другие токены по выгодному курсу. Низкие комиссии, быстрые транзакции, надежное хранение средств.</p>
     </div>
 
-    <main class="app-content" id="mainContent">
-      <!-- Контент для неавторизованных пользователей -->
-      <div class="welcome-content" id="welcomeContent">
-        <h2>Начните работу с обменником</h2>
-        <p>Зарегистрируйтесь, чтобы получить бонус 0.5 SOL и 10 USDT!</p>
-        <div class="features">
-          <div class="feature">
-            <h3>Безопасность</h3>
-            <p>Все транзакции защищены современными алгоритмами шифрования</p>
+    <main class="app-content">
+      <div class="exchange-card">
+        <div class="rate-display">
+          <div class="crypto-info">
+            <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="SOL" class="crypto-icon">
+            <span>Solana</span>
           </div>
-          <div class="feature">
-            <h3>Выгодный курс</h3>
-            <p>Лучшие курсы обмена среди конкурентов</p>
-          </div>
-          <div class="feature">
-            <h3>Поддержка 24/7</h3>
-            <p>Наша служба поддержки всегда готова помочь</p>
-          </div>
+          <div class="rate-value" id="rate">0.00 USDT</div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-buy">Buy</button>
+          <button class="btn-sell">Sell</button>
         </div>
       </div>
 
-      <!-- Контент для авторизованных пользователей -->
-      <div class="user-content hidden" id="userContent">
-        <div class="exchange-card">
-          <div class="rate-display">
-            <div class="crypto-info">
-              <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="SOL" class="crypto-icon">
-              <span>Solana</span>
-            </div>
-            <div class="rate-value" id="rate">0.00 USDT</div>
-          </div>
-
-          <div class="action-buttons">
-            <button class="btn-buy">Buy</button>
-            <button class="btn-sell">Sell</button>
-          </div>
-        </div>
-
-        <div class="account-card">
-          <h2>My Account</h2>
-          <div class="balance-row">
-            <div>
-              <div class="balance-label">SOL Balance</div>
-              <div class="balance-value" id="solBalance">0</div>
-            </div>
-            <div>
-              <div class="balance-label">USDT Balance</div>
-              <div class="balance-value" id="usdtBalance">0</div>
-            </div>
-          </div>
-          <button class="btn-deposit" id="depositBtn">Deposit</button>
-        </div>
+      <div class="account-card">
+        <h2>Exchange</h2>
+        <button class="btn-deposit" id="depositBtn">Deposit</button>
       </div>
     </main>
 
-    <!-- Модальные окна -->
-    <div class="modal hidden" id="loginModal">
+    <!-- Модальное окно капчи -->
+    <div class="modal hidden" id="captchaModal">
       <div class="modal-content">
         <span class="close-modal">&times;</span>
-        <h2>Log In</h2>
-        <form id="loginForm">
-          <input type="text" placeholder="Username" class="input-field" required>
-          <input type="password" placeholder="Password" class="input-field" required>
-          <button type="submit" class="btn-primary">Log In</button>
+        <h2>Verify you're human</h2>
+        <form id="captchaForm">
+          <div id="captchaQuestion"></div>
+          <input type="text" id="captchaAnswer" placeholder="Your answer" class="input-field" required>
+          <button type="submit" class="btn-primary">Verify</button>
         </form>
-      </div>
-    </div>
-
-    <div class="modal hidden" id="registerModal">
-      <div class="modal-content">
-        <span class="close-modal">&times;</span>
-        <h2>Register</h2>
-        <form id="registerForm">
-          <input type="text" placeholder="Username" class="input-field" required>
-          <input type="password" placeholder="Password" class="input-field" required>
-          <input type="password" placeholder="Confirm Password" class="input-field" required>
-          <button type="submit" class="btn-primary">Register</button>
-        </form>
-        <div class="bonus-info">
-          <p>🎁 Бонус за регистрацию: 0.5 SOL + 10 USDT</p>
-        </div>
       </div>
     </div>
   </div>
