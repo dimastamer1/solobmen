@@ -24,6 +24,14 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.set('views', path.join(__dirname, '../views'));
 app.set('view engine', 'ejs');
 
+
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch(err => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1); // Завершить процесс при ошибке
+  });
+  
 // Сессии
 app.use(session({
   secret: process.env.SESSION_SECRET,
