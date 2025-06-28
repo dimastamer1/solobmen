@@ -1,5 +1,11 @@
+// filepath: c:\Users\dima1\Desktop\obmen\server\models\User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+
+// Генерация адреса депозита
+function generateDepositAddress() {
+  return 'SOL' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
 
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -9,11 +15,6 @@ const userSchema = new mongoose.Schema({
   depositAddress: { type: String, default: generateDepositAddress },
   createdAt: { type: Date, default: Date.now }
 });
-
-// Генерация адреса депозита
-function generateDepositAddress() {
-  return 'SOL' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
 
 // Хеширование пароля перед сохранением
 userSchema.pre('save', async function(next) {

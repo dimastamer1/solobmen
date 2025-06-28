@@ -1,80 +1,123 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
-// Регистрация
+// Улучшенная регистрация
 router.post('/register', async (req, res) => {
   try {
+    console.log('Регистрация:', req.body); // Логируем входящие данные
+    
     const { username, password } = req.body;
     
-    // Проверка на существующего пользователя
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Username already exists' });
+    // Валидация
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username and password are required' 
+      });
     }
 
-    // Создание нового пользователя с бонусом
+    // Проверка существующего пользователя
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username already exists' 
+      });
+    }
+
+    // Хеширование пароля
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Создание пользователя
     const newUser = new User({ 
       username, 
-      password,
-      solBalance: 0.5, // Бонус за регистрацию 0.5 SOL
-      usdtBalance: 10  // Бонус 10 USDT
+      password: hashedPassword,
+      solBalance: 0.5,
+      usdtBalance: 10,
+      depositAddress: `SOL-${Math.random().toString(36).substring(2, 15)}`
     });
 
     await newUser.save();
     
-    // Сохраняем пользователя в сессии
-    req.session.user = {
-      id: newUser._id,
-      username: newUser.username,
-      solBalance: newUser.solBalance,
-      usdtBalance: newUser.usdtBalance,
-      depositAddress: newUser.depositAddress
-    };
-
+    // Ответ без чувствительных данных
     res.json({ 
       success: true,
-      user: req.session.user
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        solBalance: newUser.solBalance,
+        usdtBalance: newUser.usdtBalance
+      }
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Ошибка регистрации:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Авторизация
+// Улучшенный вход
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
     
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+    // Находим пользователя
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
     }
 
-    // Обновляем балансы из базы
-    const updatedUser = await User.findById(user._id);
-    
-    req.session.user = {
-      id: updatedUser._id,
-      username: updatedUser.username,
-      solBalance: updatedUser.solBalance,
-      usdtBalance: updatedUser.usdtBalance,
-      depositAddress: updatedUser.depositAddress
-    };
+    // Проверяем пароль
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
 
-    res.json({ 
+    // Формируем ответ
+    res.json({
       success: true,
-      user: req.session.user
+      user: {
+        id: user._id,
+        username: user.username,
+        solBalance: user.solBalance,
+        usdtBalance: user.usdtBalance,
+        depositAddress: user.depositAddress
+      }
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Ошибка входа:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
 });
 
 // Выход
 router.get('/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ success: true });
+  try {
+    req.session.destroy();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка выхода:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Logout failed' 
+    });
+  }
 });
 
 module.exports = router;
