@@ -17,6 +17,8 @@
       --gray: #2D2D2D;
       --solana-gradient: linear-gradient(135deg, #9945FF 0%, #14F195 100%);
     }
+
+  
     
     * {
       margin: 0;
@@ -622,19 +624,17 @@
       </div>
     </div>
 
-    <!-- Captcha Modal -->
-    <div class="modal" id="captchaModal">
-      <div class="modal-content">
-        <span class="close-modal">&times;</span>
-        <h2>Verify you're human</h2>
-        <form id="captchaForm">
-          <div id="captchaQuestion" style="font-size: 18px; margin: 15px 0; text-align: center;">What is 6 + 6?</div>
-          <input type="text" id="captchaAnswer" placeholder="Your answer" class="input-field" required>
-          <button type="submit" class="btn-deposit" style="width: 100%;">Verify</button>
-        </form>
-      </div>
-    </div>
+<div class="modal" id="captchaModal">
+  <div class="modal-content">
+    <span class="close-modal">&times;</span>
+    <h2>Verify you're human</h2>
+    <form id="captchaForm">
+      <div id="captchaQuestion" style="font-size: 18px; margin: 15px 0; text-align: center;">Loading question...</div>
+      <input type="text" id="captchaAnswer" placeholder="Your answer" class="input-field" required>
+      <button type="submit" class="btn-deposit" style="width: 100%;">Verify</button>
+    </form>
   </div>
+</div>
 
   <!-- Toast Notification -->
   <div class="toast" id="toast"></div>
@@ -654,6 +654,8 @@
     // DOM элементы
     const elements = {
       // Балансы
+      captchaQuestion: document.getElementById('captchaQuestion'), // Добавить эту строку
+      captchaAnswer: document.getElementById('captchaAnswer'),
       solBalance: document.getElementById('solBalance'),
       usdtBalance: document.getElementById('usdtBalance'),
       rateDisplay: document.getElementById('rate'),
@@ -701,22 +703,35 @@
     }
     
     function initApp() {
-      setupEventListeners();
-      updateUI();
-      
-      // Проверяем localStorage для балансов
-      const savedBalances = JSON.parse(localStorage.getItem('balances'));
-      if (savedBalances) {
-        balances = savedBalances;
-        updateBalances();
-      }
-      
-      // Показываем капчу если не пройдена
-      if (!localStorage.getItem('captchaPassed')) {
-        showModal('captcha');
-      }
-    }
-    
+  setupEventListeners();
+  updateUI();
+  
+  // Проверяем localStorage для балансов
+  const savedBalances = JSON.parse(localStorage.getItem('balances'));
+  if (savedBalances) {
+    balances = savedBalances;
+    updateBalances();
+  }
+  
+  // Показываем капчу если не пройдена
+  if (!localStorage.getItem('captchaPassed')) {
+    generateNewCaptcha(); // Добавлен этот вызов
+    showModal('captcha');
+  }
+}
+function generateNewCaptcha() {
+  // Генерируем новый вопрос капчи
+  const num1 = Math.floor(Math.random() * 10) + 1;
+  const num2 = Math.floor(Math.random() * 10) + 1;
+  const correctAnswer = num1 + num2;
+  
+  // Сохраняем правильный ответ в data-атрибуте
+  elements.captchaForm.dataset.correctAnswer = correctAnswer;
+  elements.captchaQuestion.textContent = `What is ${num1} + ${num2}?`;
+  elements.captchaAnswer.value = '';
+}
+ 
+
     function setupEventListeners() {
       // Кнопки депозита
       elements.depositSolBtn.addEventListener('click', () => showModal('depositSol'));
@@ -803,24 +818,42 @@
     }
     
     async function handleCaptchaSubmit(e) {
-      e.preventDefault();
-      const answer = elements.captchaAnswer.value.trim();
-      
-      if (answer === "12") {
-        localStorage.setItem('captchaPassed', 'true');
-        showToast('Verification successful!');
-        hideModal('captcha');
-        
-        // Даем бонус за прохождение капчи
-        balances.sol += 0.5;
-        balances.usdt += 10;
-        updateBalances();
-        showToast('You received 0.5 SOL + 10 USDT bonus!');
-      } else {
-        showToast('Wrong answer, try again', 'error');
-      }
-    }
+  e.preventDefault();
+  const answer = elements.captchaAnswer.value.trim();
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/captcha/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ answer })
+    });
     
+    const data = await response.json();
+    
+    if (data.success) {
+      localStorage.setItem('captchaPassed', 'true');
+      showToast('Verification successful!');
+      hideModal('captcha');
+      
+      // Даем бонус за прохождение капчи
+      balances.sol += 0.5;
+      balances.usdt += 10;
+      updateBalances();
+      showToast('You received 0.5 SOL + 10 USDT bonus!');
+      
+      // Генерируем новый вопрос капчи
+      generateNewCaptcha();
+    } else {
+      showToast(data.message || 'Wrong answer, try again', 'error');
+      generateNewCaptcha();
+    }
+  } catch (error) {
+    console.error('Captcha verification error:', error);
+    showToast('Error verifying captcha. Please try again.', 'error');
+  }
+}
     // Вспомогательные функции
     function showModal(modalId) {
       elements.modals[modalId]?.classList.add('active');

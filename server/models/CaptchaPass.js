@@ -1,3 +1,4 @@
+// server/models/CaptchaPass.js
 const mongoose = require('mongoose');
 
 const captchaPassSchema = new mongoose.Schema({
