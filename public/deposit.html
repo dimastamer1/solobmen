@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deposit SOL</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-container">
+        <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" class="logo">
+        <h1>Deposit SOL</h1>
+      </div>
+    </header>
+
+    <main class="deposit-content">
+      <div class="deposit-card">
+        <h2>Deposit SOL to Your Account</h2>
+        <div class="deposit-info">
+          <p>Send SOL to the address below. Minimum deposit: <strong>0.05 SOL</strong></p>
+          <div class="qr-code-placeholder"></div>
+          <div class="deposit-address" id="depositAddress"></div>
+          <button class="btn-copy" id="copyAddressBtn">Copy Address</button>
+        </div>
+        <div class="deposit-instructions">
+          <h3>Instructions:</h3>
+          <ol>
+            <li>Copy the deposit address above</li>
+            <li>Send SOL from your external wallet</li>
+            <li>Wait for network confirmation (usually 1-2 minutes)</li>
+            <li>Your balance will update automatically</li>
+          </ol>
+        </div>
+        <a href="/" class="btn-back">Back to Exchange</a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Получаем данные пользователя из sessionStorage
+    const userData = JSON.parse(sessionStorage.getItem('user'));
+    if (!userData) {
+      window.location.href = '/';
+    }
+
+    // Отображаем адрес депозита
+    document.getElementById('depositAddress').textContent = userData.depositAddress;
+
+    // Копирование адреса
+    document.getElementById('copyAddressBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(userData.depositAddress);
+      alert('Address copied to clipboard!');
+    });
+  </script>
+</body>
+</html>

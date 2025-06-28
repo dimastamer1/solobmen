@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solana Wallet Exchange</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-container">
+        <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" class="logo">
+        <h1>Solana Wallet Exchange</h1>
+      </div>
+    </header>
+
+    <main class="app-content">
+      <div class="exchange-card">
+        <div class="rate-display">
+          <div class="crypto-info">
+            <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="SOL" class="crypto-icon">
+            <span>Solana</span>
+          </div>
+          <div class="rate-value" id="rate">167.04 USDT</div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-buy">Buy</button>
+          <button class="btn-sell">Sell</button>
+        </div>
+      </div>
+
+      <div class="account-card">
+        <h2>My Account</h2>
+        <div class="balance-row">
+          <div>
+            <div class="balance-label">SOL Balance</div>
+            <div class="balance-value" id="solBalance">0</div>
+          </div>
+          <div>
+            <div class="balance-label">USDT Balance</div>
+            <div class="balance-value" id="usdtBalance">0</div>
+          </div>
+        </div>
+        <button class="btn-deposit">Deposit</button>
+      </div>
+
+      <div class="login-card">
+        <h2>Login</h2>
+        <input type="text" placeholder="Nickname" class="input-field">
+        <input type="password" placeholder="Password" class="input-field">
+        <button class="btn-login">Log In</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
