@@ -3,10 +3,10 @@ const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
-// Улучшенная регистрация
+// Улучшенная регистрация с CORS заголовками
 router.post('/register', async (req, res) => {
   try {
-    console.log('Регистрация:', req.body); // Логируем входящие данные
+    console.log('Регистрация:', req.body);
     
     const { username, password } = req.body;
     
@@ -30,25 +30,29 @@ router.post('/register', async (req, res) => {
     // Хеширование пароля
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Создание пользователя
+    // Создание пользователя с депозитным адресом
     const newUser = new User({ 
       username, 
       password: hashedPassword,
-      solBalance: 0.5,
-      usdtBalance: 10,
+      solBalance: 0.5,  // Бонус за регистрацию
+      usdtBalance: 10,  // Бонус за регистрацию
       depositAddress: `SOL-${Math.random().toString(36).substring(2, 15)}`
     });
 
     await newUser.save();
     
-    // Ответ без чувствительных данных
+    // Устанавливаем CORS заголовки
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     res.json({ 
       success: true,
       user: {
         id: newUser._id,
         username: newUser.username,
         solBalance: newUser.solBalance,
-        usdtBalance: newUser.usdtBalance
+        usdtBalance: newUser.usdtBalance,
+        depositAddress: newUser.depositAddress
       }
     });
 
@@ -62,12 +66,11 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Улучшенный вход
+// Улучшенный вход с сессией
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     
-    // Находим пользователя
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(401).json({ 
@@ -76,7 +79,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Проверяем пароль
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ 
@@ -85,7 +87,16 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Формируем ответ
+    // Сохраняем пользователя в сессии
+    req.session.user = {
+      id: user._id,
+      username: user.username
+    };
+
+    // Устанавливаем CORS заголовки
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     res.json({
       success: true,
       user: {
@@ -106,11 +117,18 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Выход
+// Выход с очисткой сессии
 router.get('/logout', (req, res) => {
   try {
-    req.session.destroy();
-    res.json({ success: true });
+    req.session.destroy(err => {
+      if (err) throw err;
+      
+      // Устанавливаем CORS заголовки
+      res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      
+      res.json({ success: true });
+    });
   } catch (error) {
     console.error('Ошибка выхода:', error);
     res.status(500).json({ 

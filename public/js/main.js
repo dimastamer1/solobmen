@@ -1,176 +1,245 @@
+// Конфигурация
+const API_BASE_URL = 'https://solobmen.onrender.com';
+
 // Состояние приложения
 let rate = getRandomRate();
-let user = JSON.parse(sessionStorage.getItem('user')) || null;
+let user = JSON.parse(localStorage.getItem('user')) || null;
 
 // DOM элементы
-const authButtons = document.getElementById('authButtons');
-const userInfo = document.getElementById('userInfo');
-const usernameDisplay = document.getElementById('usernameDisplay');
-const logoutBtn = document.getElementById('logoutBtn');
-const welcomeContent = document.getElementById('welcomeContent');
-const userContent = document.getElementById('userContent');
-const loginBtn = document.getElementById('loginBtn');
-const registerBtn = document.getElementById('registerBtn');
-const loginModal = document.getElementById('loginModal');
-const registerModal = document.getElementById('registerModal');
-const closeModalButtons = document.querySelectorAll('.close-modal');
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-const depositBtn = document.getElementById('depositBtn');
+const elements = {
+  // Auth elements
+  loginBtn: document.getElementById('loginBtn'),
+  registerBtn: document.getElementById('registerBtn'),
+  logoutBtn: document.getElementById('logoutBtn'),
+  loginForm: document.getElementById('loginForm'),
+  registerForm: document.getElementById('registerForm'),
+  usernameDisplay: document.getElementById('usernameDisplay'),
+  
+  // UI elements
+  authButtons: document.getElementById('authButtons'),
+  userInfo: document.getElementById('userInfo'),
+  welcomeContent: document.getElementById('welcomeContent'),
+  userContent: document.getElementById('userContent'),
+  loginModal: document.getElementById('loginModal'),
+  registerModal: document.getElementById('registerModal'),
+  depositBtn: document.getElementById('depositBtn'),
+  solBalance: document.getElementById('solBalance'),
+  usdtBalance: document.getElementById('usdtBalance'),
+  rateDisplay: document.getElementById('rate')
+};
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
-  updateUI();
-  setupEventListeners();
+  initApp();
   startRateUpdates();
 });
 
-// Функции
+// Основные функции
 function getRandomRate() {
   return (Math.random() * (178.02 - 160.03) + 160.03).toFixed(2);
 }
 
+function initApp() {
+  setupEventListeners();
+  updateUI();
+}
+
 function updateUI() {
   if (user) {
-    authButtons.classList.add('hidden');
-    userInfo.classList.remove('hidden');
-    usernameDisplay.textContent = user.username;
-    welcomeContent.classList.add('hidden');
-    userContent.classList.remove('hidden');
+    // Показываем элементы для авторизованных пользователей
+    document.querySelectorAll('.auth-only').forEach(el => {
+      el.style.display = 'block';
+    });
+    document.querySelectorAll('.guest-only').forEach(el => {
+      el.style.display = 'none';
+    });
     
-    // Обновляем балансы
-    document.getElementById('solBalance').textContent = user.solBalance.toFixed(4);
-    document.getElementById('usdtBalance').textContent = user.usdtBalance.toFixed(2);
-    document.getElementById('rate').textContent = `${rate} USDT`;
+    // Обновляем информацию пользователя
+    if (elements.usernameDisplay) {
+      elements.usernameDisplay.textContent = user.username;
+    }
+    if (elements.solBalance) {
+      elements.solBalance.textContent = user.solBalance.toFixed(4);
+    }
+    if (elements.usdtBalance) {
+      elements.usdtBalance.textContent = user.usdtBalance.toFixed(2);
+    }
+    if (elements.rateDisplay) {
+      elements.rateDisplay.textContent = `${rate} USDT`;
+    }
   } else {
-    authButtons.classList.remove('hidden');
-    userInfo.classList.add('hidden');
-    welcomeContent.classList.remove('hidden');
-    userContent.classList.add('hidden');
+    // Показываем элементы для гостей
+    document.querySelectorAll('.auth-only').forEach(el => {
+      el.style.display = 'none';
+    });
+    document.querySelectorAll('.guest-only').forEach(el => {
+      el.style.display = 'block';
+    });
   }
 }
 
 function setupEventListeners() {
-  // Кнопки авторизации/регистрации
-  loginBtn.addEventListener('click', () => loginModal.classList.remove('hidden'));
-  registerBtn.addEventListener('click', () => registerModal.classList.remove('hidden'));
-  logoutBtn.addEventListener('click', handleLogout);
+  // Кнопки авторизации
+  if (elements.loginBtn) {
+    elements.loginBtn.addEventListener('click', () => {
+      if (elements.loginModal) elements.loginModal.classList.remove('hidden');
+    });
+  }
+  
+  if (elements.registerBtn) {
+    elements.registerBtn.addEventListener('click', () => {
+      if (elements.registerModal) elements.registerModal.classList.remove('hidden');
+    });
+  }
+  
+  // Формы
+  if (elements.loginForm) {
+    elements.loginForm.addEventListener('submit', handleLogin);
+  }
+  
+  if (elements.registerForm) {
+    elements.registerForm.addEventListener('submit', handleRegister);
+  }
+  
+  // Кнопка выхода
+  if (elements.logoutBtn) {
+    elements.logoutBtn.addEventListener('click', handleLogout);
+  }
   
   // Закрытие модальных окон
+  const closeModalButtons = document.querySelectorAll('.close-modal');
   closeModalButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      loginModal.classList.add('hidden');
-      registerModal.classList.add('hidden');
+      if (elements.loginModal) elements.loginModal.classList.add('hidden');
+      if (elements.registerModal) elements.registerModal.classList.add('hidden');
     });
   });
   
   // Клик вне модального окна
   window.addEventListener('click', (e) => {
-    if (e.target === loginModal) loginModal.classList.add('hidden');
-    if (e.target === registerModal) registerModal.classList.add('hidden');
+    if (elements.loginModal && e.target === elements.loginModal) {
+      elements.loginModal.classList.add('hidden');
+    }
+    if (elements.registerModal && e.target === elements.registerModal) {
+      elements.registerModal.classList.add('hidden');
+    }
   });
   
-  // Формы
-  loginForm.addEventListener('submit', handleLogin);
-  registerForm.addEventListener('submit', handleRegister);
-  
-  // Депозит
-  if (depositBtn) {
-    depositBtn.addEventListener('click', () => {
-      // Сохраняем данные пользователя в sessionStorage для депозит страницы
-      sessionStorage.setItem('user', JSON.stringify(user));
-      window.location.href = '/deposit';
+  // Кнопка депозита
+  if (elements.depositBtn) {
+    elements.depositBtn.addEventListener('click', () => {
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        window.location.href = '/deposit';
+      }
     });
   }
 }
 
+// Обработчики авторизации
 async function handleLogin(e) {
   e.preventDefault();
-  const formData = new FormData(loginForm);
-  const username = formData.get('username');
-  const password = formData.get('password');
   
+  const formData = new FormData(elements.loginForm);
+  const credentials = {
+    username: formData.get('username'),
+    password: formData.get('password')
+  };
+
   try {
-    const response = await fetch('/auth/login', {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
+      headers: { 
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify(credentials),
+      credentials: 'include'
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       user = data.user;
-      sessionStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(user));
       updateUI();
-      loginModal.classList.add('hidden');
+      showToast('Login successful!');
+      if (elements.loginModal) elements.loginModal.classList.add('hidden');
     } else {
-      alert(data.message || 'Login failed');
+      showToast(data.message || 'Login failed', 'error');
     }
   } catch (error) {
     console.error('Login error:', error);
-    alert('Server error');
+    showToast('Connection error', 'error');
   }
 }
 
 async function handleRegister(e) {
   e.preventDefault();
-  const formData = new FormData(registerForm);
-  const username = formData.get('username');
-  const password = formData.get('password');
-  const confirmPassword = formData.get('confirm_password');
   
-  if (password !== confirmPassword) {
-    alert('Passwords do not match');
+  const formData = new FormData(elements.registerForm);
+  const userData = {
+    username: formData.get('username'),
+    password: formData.get('password'),
+    confirmPassword: formData.get('confirm_password')
+  };
+
+  if (userData.password !== userData.confirmPassword) {
+    showToast('Passwords do not match', 'error');
     return;
   }
-  
+
   try {
-    const response = await fetch('/auth/register', {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
+      headers: { 
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({
+        username: userData.username,
+        password: userData.password
+      }),
+      credentials: 'include'
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       user = data.user;
-      sessionStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(user));
       updateUI();
-      registerModal.classList.add('hidden');
-      alert(`Welcome! You received 0.5 SOL and 10 USDT as a registration bonus.`);
+      showToast('Registration successful! You received 0.5 SOL + 10 USDT bonus!');
+      if (elements.registerModal) elements.registerModal.classList.add('hidden');
     } else {
-      alert(data.message || 'Registration failed');
+      showToast(data.message || 'Registration failed', 'error');
     }
   } catch (error) {
     console.error('Registration error:', error);
-    alert('Server error');
+    showToast('Connection error', 'error');
   }
 }
 
 async function handleLogout() {
   try {
-    const response = await fetch('/auth/logout', {
-      method: 'GET'
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'GET',
+      credentials: 'include'
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       user = null;
-      sessionStorage.removeItem('user');
+      localStorage.removeItem('user');
       updateUI();
+      showToast('Logged out successfully');
     }
   } catch (error) {
     console.error('Logout error:', error);
+    showToast('Logout failed', 'error');
   }
 }
 
+// Функции для работы с курсом
 function startRateUpdates() {
   updateRate();
   setInterval(updateRate, 5000);
@@ -178,7 +247,19 @@ function startRateUpdates() {
 
 function updateRate() {
   rate = getRandomRate();
-  if (user) {
-    document.getElementById('rate').textContent = `${rate} USDT`;
+  if (user && elements.rateDisplay) {
+    elements.rateDisplay.textContent = `${rate} USDT`;
   }
+}
+
+// Вспомогательные функции
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
 }
