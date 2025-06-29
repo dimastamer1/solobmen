@@ -6,15 +6,12 @@ function generateDepositAddress() {
 }
 
 const userSchema = new mongoose.Schema({
-  // Существующие поля
   username: { type: String, unique: true, sparse: true },
   password: { type: String },
   solBalance: { type: Number, default: 0 },
   usdtBalance: { type: Number, default: 0 },
   depositAddress: { type: String, default: generateDepositAddress },
   createdAt: { type: Date, default: Date.now },
-  
-  // Новые поля для Telegram
   telegramId: { type: Number, unique: true, sparse: true },
   telegramData: {
     username: String,
