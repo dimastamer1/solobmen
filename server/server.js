@@ -20,6 +20,11 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS']
 }));
 
+// Добавьте этот роут в ваш server.js/app.js
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
