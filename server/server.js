@@ -63,11 +63,11 @@ mongoose.connect(process.env.MONGODB_URI, {
 • Instant transactions on Solana network
 • Secure and reliable service since 2019
 
-💱 *Current rates:*
-1 SOL = ~160 USDT
-1 USDT = ~0.00625 SOL
+💱 *Minimum deposits:*
+Minimum deposit 0.05 SOL
+Minimum deposit 5 USDT
 
-${'https://quark.house/wp-content/uploads/2024/11/solana-1024x576.jpg'}
+
 
 We recommend checking our Policy before trading. Happy exchanging! 💰
   `;
@@ -88,7 +88,7 @@ Your funds are protected by:
 - Cold storage for 95% of assets
 - Regular security audits
 
-For full terms: [Visit our website](${process.env.API_BASE_URL})
+
   `;
 
   // How we work message
@@ -120,15 +120,15 @@ A: We aggregate rates from multiple exchanges and pass savings to you with 0% co
 A: Since 2019 (over 4 years) across web and mobile platforms.
 
 *Q: Is there a minimum exchange amount?*
-A: Yes, 5 USDT or 0.01 SOL for all transactions.
+A: Yes, 5 USDT or 0.05 SOL for all transactions.
 
 *Q: How fast are transactions?*
-A: Typically under 30 seconds on Solana network.
+A: Typically under 50+ seconds on Solana network.
 
 *Q: Do you support other cryptocurrencies?*
 A: Currently only SOL and USDT (SPL tokens).
 
-Need more help? Contact @SolanaSupportBot
+
   `;
 
   // Start command handler
