@@ -3,7 +3,6 @@ const { Telegraf } = require('telegraf');
 const mongoose = require('mongoose');
 const User = require('./models/User');
 
-// Подключение к MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -12,18 +11,23 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-// Команда /start
 bot.start(async (ctx) => {
   try {
     const { id, username, first_name, last_name } = ctx.from;
 
+    // Формируем объект для обновления, username записываем только если есть (не null)
+    const updateData = {
+      telegramId: id,
+      telegramData: { username, first_name, last_name },
+      lastActivity: new Date()
+    };
+    if (username) {
+      updateData.username = username;
+    }
+
     const user = await User.findOneAndUpdate(
       { telegramId: id },
-      {
-        telegramId: id,
-        telegramData: { username, first_name, last_name },
-        lastActivity: new Date()
-      },
+      updateData,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
@@ -38,7 +42,7 @@ bot.start(async (ctx) => {
             [
               {
                 text: '💰 Открыть обменник',
-                web_app: { url: 'https://solobmen.onrender.com/' } // ← ТУТ ЖЁСТКО ПРОПИСАН URL
+                web_app: { url: 'https://solobmen.onrender.com/' }
               }
             ],
             [
@@ -54,10 +58,9 @@ bot.start(async (ctx) => {
   }
 });
 
-// Обработка inline кнопки "Посмотреть баланс"
 bot.on('callback_query', async (ctx) => {
   try {
-    await ctx.answerCbQuery(); // всегда вызывается СРАЗУ
+    await ctx.answerCbQuery();
 
     if (ctx.callbackQuery.data === 'balance') {
       const user = await User.findOne({ telegramId: ctx.from.id });
@@ -77,7 +80,6 @@ bot.on('callback_query', async (ctx) => {
   }
 });
 
-// Обработка данных из WebApp
 bot.on('web_app_data', (ctx) => {
   try {
     const data = JSON.parse(ctx.webAppData.data);
@@ -87,10 +89,8 @@ bot.on('web_app_data', (ctx) => {
   }
 });
 
-// Обработка ошибок
 bot.catch((err) => console.error('Bot error:', err));
 
-// Запуск
 bot.launch().then(() => console.log('🤖 Бот запущен'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
