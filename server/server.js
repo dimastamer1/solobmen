@@ -3,7 +3,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
-
 const { Telegraf, Markup } = require('telegraf');
 const User = require('./models/User');
 
@@ -40,7 +39,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
 
-// Подключаемся к MongoDB
+// Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -54,24 +53,93 @@ mongoose.connect(process.env.MONGODB_URI, {
 
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-  // Обновленная логика /start без проблем с username=null
+  // Welcome message with Solana image and rich text
+  const welcomeMessage = (name) => `
+🎉 *Welcome to Solana Exchange, ${name || 'user'}!* 🎉
+
+🚀 *Why choose us?*
+• Best exchange rates for SOL/USDT
+• 0% commission on all trades
+• Instant transactions on Solana network
+• Secure and reliable service since 2019
+
+💱 *Current rates:*
+1 SOL = ~160 USDT
+1 USDT = ~0.00625 SOL
+
+${'https://quark.house/wp-content/uploads/2024/11/solana-1024x576.jpg'}
+
+We recommend checking our Policy before trading. Happy exchanging! 💰
+  `;
+
+  // Policy message
+  const policyMessage = `
+🔒 *Our Privacy Policy & Security*
+
+At Solana Exchange, we prioritize your security:
+
+• We operate exclusively on Solana blockchain (SPL tokens)
+• We never store your private keys or sensitive data
+• All transactions are processed through smart contracts
+• We comply with international crypto regulations
+
+Your funds are protected by:
+- Multi-signature wallets
+- Cold storage for 95% of assets
+- Regular security audits
+
+For full terms: [Visit our website](${process.env.API_BASE_URL})
+  `;
+
+  // How we work message
+  const howWeWorkMessage = `
+🛠 *How We Work & Our Story*
+
+Founded in 2019, we migrated to Telegram to provide better service:
+
+• 2019: Started as SolSwap on Google Sites
+• 2021: Launched mobile app with 50k+ users
+• 2023: Fully transitioned to Telegram bots
+• 2024: Processed $10M+ in trades
+
+Our advantages:
+✅ 24/7 customer support
+✅ Best rates from 10+ liquidity providers
+✅ Non-custodial exchange model
+✅ Regular market analysis updates
+  `;
+
+  // FAQ message
+  const faqMessage = `
+❓ *Frequently Asked Questions*
+
+*Q: What's your advantage over competitors?*
+A: We aggregate rates from multiple exchanges and pass savings to you with 0% commission.
+
+*Q: How long have you been operating?*
+A: Since 2019 (over 4 years) across web and mobile platforms.
+
+*Q: Is there a minimum exchange amount?*
+A: Yes, 5 USDT or 0.01 SOL for all transactions.
+
+*Q: How fast are transactions?*
+A: Typically under 30 seconds on Solana network.
+
+*Q: Do you support other cryptocurrencies?*
+A: Currently only SOL and USDT (SPL tokens).
+
+Need more help? Contact @SolanaSupportBot
+  `;
+
+  // Start command handler
   bot.start(async (ctx) => {
     try {
-      const { id, username, first_name, last_name } = ctx.from;
-
-      // Создаем объект с обновляемыми данными, исключая username если null/undefined
+      const { id, first_name } = ctx.from;
+      
       const updateData = {
         telegramId: id,
-        telegramData: {
-          first_name: first_name || '',
-          last_name: last_name || ''
-        },
         lastActivity: new Date()
       };
-      // Добавляем username только если он есть и не null
-      if (typeof username === 'string' && username.trim() !== '') {
-        updateData.telegramData.username = username;
-      }
 
       const user = await User.findOneAndUpdate(
         { telegramId: id },
@@ -79,90 +147,116 @@ mongoose.connect(process.env.MONGODB_URI, {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      await ctx.replyWithHTML(
-        `👋 <b>Добро пожаловать, ${first_name || 'пользователь'}!</b>\n\n` +
-        `Ваш баланс:\n` +
-        `SOL: ${user.solBalance.toFixed(4)}\n` +
-        `USDT: ${user.usdtBalance.toFixed(2)}`,
-        Markup.inlineKeyboard([
-          [Markup.button.webApp('💰 Обменник', 'https://solobmen.onrender.com')],
-          [Markup.button.callback('📊 Показать баланс', 'SHOW_BALANCE')]
-        ])
+      await ctx.replyWithPhoto(
+        { url: 'https://quark.house/wp-content/uploads/2024/11/solana-1024x576.jpg' },
+        {
+          caption: welcomeMessage(first_name),
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.webApp('💰 Open Exchange', 'https://solobmen.onrender.com'),
+            ],
+            [
+              Markup.button.callback('🔒 Policy', 'SHOW_POLICY'),
+              Markup.button.callback('🛠 How We Work', 'SHOW_HOW')
+            ],
+            [
+              Markup.button.callback('❓ FAQ', 'SHOW_FAQ')
+            ]
+          ])
+        }
       );
     } catch (err) {
-      // Обработка ошибки - скорее всего уникальность username — здесь игнорируем
-      if (err.code === 11000 && err.keyPattern && err.keyPattern.username) {
-        console.warn('Игнорируем дублирование username (скорее всего null)');
-        // Пробуем обновить без username (на всякий случай)
-        try {
-          const user = await User.findOneAndUpdate(
-            { telegramId: ctx.from.id },
-            {
-              telegramId: ctx.from.id,
-              telegramData: {
-                first_name: ctx.from.first_name || '',
-                last_name: ctx.from.last_name || ''
-              },
-              lastActivity: new Date()
-            },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-          );
-
-          await ctx.replyWithHTML(
-            `👋 <b>Добро пожаловать, ${ctx.from.first_name || 'пользователь'}!</b>\n\n` +
-            `Ваш баланс:\n` +
-            `SOL: ${user.solBalance.toFixed(4)}\n` +
-            `USDT: ${user.usdtBalance.toFixed(2)}`,
-            Markup.inlineKeyboard([
-              [Markup.button.webApp('💰 Обменник', 'https://solobmen.onrender.com')],
-              [Markup.button.callback('📊 Показать баланс', 'SHOW_BALANCE')]
-            ])
-          );
-        } catch (innerErr) {
-          console.error('Вторая попытка обновления без username тоже провалилась:', innerErr);
-          ctx.reply('⚠️ Произошла ошибка. Попробуйте позже.');
-        }
-      } else {
-        console.error('Ошибка в /start бота:', err);
-        ctx.reply('⚠️ Произошла ошибка. Попробуйте позже.');
-      }
+      console.error('Start command error:', err);
+      ctx.reply('⚠️ An error occurred. Please try again later.');
     }
   });
 
-  bot.action('SHOW_BALANCE', async (ctx) => {
+  // Policy callback
+  bot.action('SHOW_POLICY', async (ctx) => {
     try {
       await ctx.answerCbQuery();
-
-      const user = await User.findOne({ telegramId: ctx.from.id });
-      if (!user) return ctx.reply('Пользователь не найден.');
-
-      ctx.replyWithHTML(
-        `Ваш баланс:\n` +
-        `SOL: <b>${user.solBalance.toFixed(4)}</b>\n` +
-        `USDT: <b>${user.usdtBalance.toFixed(2)}</b>\n\n` +
-        `Депозитный адрес:\n<code>${user.depositAddress}</code>`
-      );
+      await ctx.replyWithMarkdown(policyMessage, Markup.inlineKeyboard([
+        [Markup.button.callback('← Back to Main Menu', 'BACK_TO_MAIN')]
+      ]));
     } catch (err) {
-      console.error('Ошибка при показе баланса:', err);
-      ctx.reply('Ошибка при получении баланса.');
+      console.error('Policy error:', err);
     }
   });
 
+  // How we work callback
+  bot.action('SHOW_HOW', async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      await ctx.replyWithMarkdown(howWeWorkMessage, Markup.inlineKeyboard([
+        [Markup.button.callback('← Back to Main Menu', 'BACK_TO_MAIN')]
+      ]));
+    } catch (err) {
+      console.error('How we work error:', err);
+    }
+  });
+
+  // FAQ callback
+  bot.action('SHOW_FAQ', async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      await ctx.replyWithMarkdown(faqMessage, Markup.inlineKeyboard([
+        [Markup.button.callback('← Back to Main Menu', 'BACK_TO_MAIN')]
+      ]));
+    } catch (err) {
+      console.error('FAQ error:', err);
+    }
+  });
+
+  // Back to main menu
+  bot.action('BACK_TO_MAIN', async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      await ctx.deleteMessage();
+      await ctx.replyWithPhoto(
+        { url: 'https://quark.house/wp-content/uploads/2024/11/solana-1024x576.jpg' },
+        {
+          caption: welcomeMessage(ctx.from.first_name),
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.webApp('💰 Open Exchange', 'https://solobmen.onrender.com'),
+            ],
+            [
+              Markup.button.callback('🔒 Policy', 'SHOW_POLICY'),
+              Markup.button.callback('🛠 How We Work', 'SHOW_HOW')
+            ],
+            [
+              Markup.button.callback('❓ FAQ', 'SHOW_FAQ')
+            ]
+          ])
+        }
+      );
+    } catch (err) {
+      console.error('Back to main error:', err);
+    }
+  });
+
+  // WebApp data handler
   bot.on('web_app_data', async (ctx) => {
     try {
       const data = JSON.parse(ctx.webAppData.data);
-      console.log('Получены данные из WebApp:', data);
+      console.log('WebApp data received:', data);
+      await ctx.reply('✅ Transaction data received! Processing your exchange...');
     } catch (err) {
-      console.error('Ошибка обработки web_app_data:', err);
+      console.error('WebApp error:', err);
     }
   });
 
+  // Error handling
   bot.catch((err) => {
-    console.error('Общая ошибка бота:', err);
+    console.error('Bot error:', err);
   });
 
+  // Launch bot
   bot.launch();
 
+  // Graceful shutdown
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
 })
