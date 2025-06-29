@@ -1,35 +1,27 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-
-function generateDepositAddress() {
-  return 'SOL' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
 
 const userSchema = new mongoose.Schema({
-  username: { type: String, unique: true, sparse: true },
+  // Убери или не используй уникальный индекс на username в корне
+  username: { type: String, unique: true, sparse: true }, // если нужно, можно удалить вообще
   password: { type: String },
+
   solBalance: { type: Number, default: 0 },
   usdtBalance: { type: Number, default: 0 },
   depositAddress: { type: String, default: generateDepositAddress },
   createdAt: { type: Date, default: Date.now },
+
+  // Telegram
   telegramId: { type: Number, unique: true, sparse: true },
   telegramData: {
-    username: String,
+    username: { type: String, sparse: true }, // вложенное поле, без уникальности
     first_name: String,
     last_name: String
   },
   lastActivity: Date
 });
 
-userSchema.pre('save', async function(next) {
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
-  }
-  next();
-});
-
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
-};
+// Индексы - важен sparse для username
+userSchema.index({ username: 1 }, { unique: true, sparse: true });
+userSchema.index({ telegramId: 1 }, { unique: true });
 
 module.exports = mongoose.model('User', userSchema);
