@@ -1,33 +1,21 @@
 require('dotenv').config();
-const { Telegraf } = require('telegraf');
-const mongoose = require('mongoose');
+const { Telegraf, Markup } = require('telegraf');
 const User = require('./models/User');
-
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB error', err));
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
+// /start — создаёт/обновляет пользователя, даёт кнопку WebApp
 bot.start(async (ctx) => {
   try {
     const { id, username, first_name, last_name } = ctx.from;
 
-    // Формируем объект для обновления, username записываем только если есть (не null)
-    const updateData = {
-      telegramId: id,
-      telegramData: { username, first_name, last_name },
-      lastActivity: new Date()
-    };
-    if (username) {
-      updateData.username = username;
-    }
-
     const user = await User.findOneAndUpdate(
       { telegramId: id },
-      updateData,
+      {
+        telegramId: id,
+        telegramData: { username, first_name, last_name },
+        lastActivity: new Date()
+      },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
@@ -36,62 +24,53 @@ bot.start(async (ctx) => {
       `Ваш баланс:\n` +
       `SOL: ${user.solBalance.toFixed(4)}\n` +
       `USDT: ${user.usdtBalance.toFixed(2)}`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: '💰 Открыть обменник',
-                web_app: { url: 'https://solobmen.onrender.com/' }
-              }
-            ],
-            [
-              { text: '📊 Посмотреть баланс', callback_data: 'balance' }
-            ]
-          ]
-        }
-      }
+      Markup.keyboard([
+        Markup.button.webApp('💰 Обменник', 'https://solobmen.onrender.com'),
+        Markup.button.text('📊 Баланс')
+      ]).resize()
     );
-  } catch (err) {
-    console.error('Telegram error:', err);
-    ctx.reply('Произошла ошибка.');
+  } catch (error) {
+    console.error('Telegram bot error:', error);
+    ctx.reply('⚠️ Произошла ошибка. Попробуйте позже.');
   }
 });
 
-bot.on('callback_query', async (ctx) => {
-  try {
-    await ctx.answerCbQuery();
-
-    if (ctx.callbackQuery.data === 'balance') {
-      const user = await User.findOne({ telegramId: ctx.from.id });
-      if (user) {
-        await ctx.replyWithHTML(
-          `📊 Баланс:\n` +
-          `SOL: <b>${user.solBalance.toFixed(4)}</b>\n` +
-          `USDT: <b>${user.usdtBalance.toFixed(2)}</b>\n\n` +
-          `💳 Адрес депозита:\n<code>${user.depositAddress}</code>`
-        );
-      } else {
-        await ctx.reply('Пользователь не найден.');
-      }
-    }
-  } catch (err) {
-    console.error('❌ Ошибка в обработке callback_query:', err);
+// Обработка кнопки "Баланс"
+bot.hears('📊 Баланс', async (ctx) => {
+  const user = await User.findOne({ telegramId: ctx.from.id });
+  if (user) {
+    await ctx.replyWithHTML(
+      `Ваш баланс:\n` +
+      `SOL: <b>${user.solBalance.toFixed(4)}</b>\n` +
+      `USDT: <b>${user.usdtBalance.toFixed(2)}</b>\n\n` +
+      `Депозитный адрес:\n<code>${user.depositAddress}</code>`
+    );
+  } else {
+    ctx.reply('Пользователь не найден.');
   }
 });
 
-bot.on('web_app_data', (ctx) => {
+// Обработка данных из WebApp
+bot.on('web_app_data', async (ctx) => {
   try {
+    // ctx.webAppData.data — это строка JSON
     const data = JSON.parse(ctx.webAppData.data);
-    console.log('📦 Получены данные из WebApp:', data);
-  } catch (err) {
-    console.error('Ошибка парсинга web_app_data:', err);
+
+    console.log('Получены данные из WebApp:', data);
+
+    // Можно дальше обработать данные и ответить пользователю
+    await ctx.reply('Данные успешно получены!');
+  } catch (e) {
+    console.error('Ошибка обработки web_app_data:', e);
+    await ctx.reply('Ошибка при обработке данных из WebApp.');
   }
 });
 
-bot.catch((err) => console.error('Bot error:', err));
+bot.catch(err => console.error('Bot error:', err));
 
-bot.launch().then(() => console.log('🤖 Бот запущен'));
+bot.launch()
+  .then(() => console.log('🤖 Telegram bot started'))
+  .catch(err => console.error('❌ Bot error:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

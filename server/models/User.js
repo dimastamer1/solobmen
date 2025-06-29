@@ -6,15 +6,12 @@ function generateDepositAddress() {
 }
 
 const userSchema = new mongoose.Schema({
-  // Убрали unique с username, так как он не обязателен и не всегда есть
-  username: { type: String, sparse: true, required: false },
-
+  username: { type: String, unique: true, sparse: true },
   password: { type: String },
   solBalance: { type: Number, default: 0 },
   usdtBalance: { type: Number, default: 0 },
   depositAddress: { type: String, default: generateDepositAddress },
   createdAt: { type: Date, default: Date.now },
-
   telegramId: { type: Number, unique: true, sparse: true },
   telegramData: {
     username: String,
@@ -24,14 +21,14 @@ const userSchema = new mongoose.Schema({
   lastActivity: Date
 });
 
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
   }
   next();
 });
 
-userSchema.methods.comparePassword = async function (candidatePassword) {
+userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
