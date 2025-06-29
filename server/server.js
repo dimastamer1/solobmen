@@ -47,7 +47,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(() => {
   console.log('✅ Connected to MongoDB');
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
   });
 
@@ -215,7 +215,7 @@ A: Currently only SOL and USDT (SPL tokens).
     `
   };
 
-  // Start command handler - now only sends language selection
+  // Start command handler
   bot.start(async (ctx) => {
     try {
       const { id } = ctx.from;
@@ -261,30 +261,58 @@ A: Currently only SOL and USDT (SPL tokens).
       const user = await User.findOne({ telegramId: ctx.from.id });
       const name = ctx.from.first_name;
       
-      await ctx.deleteMessage(); // Delete language selection
+      // Try to delete previous message if it exists
+      try {
+        if (ctx.callbackQuery?.message?.message_id) {
+          await ctx.deleteMessage();
+        }
+      } catch (deleteError) {
+        console.log('Could not delete previous message, continuing...');
+      }
       
       await ctx.replyWithPhoto(
         { url: 'https://quark.house/wp-content/uploads/2024/11/solana-1024x576.jpg' },
         {
           caption: welcomeMessages[lang](name),
           parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.webApp('💰 ' + (lang === 'en' ? 'Open Exchange' : 'Открыть Обменник'), 
-                                 'https://solobmen.onrender.com'),
-            ],
-            [
-              Markup.button.callback('🔒 ' + (lang === 'en' ? 'Policy' : 'Политика'), 'SHOW_POLICY'),
-              Markup.button.callback('🛠 ' + (lang === 'en' ? 'How We Work' : 'Как мы работаем'), 'SHOW_HOW')
-            ],
-            [
-              Markup.button.callback('❓ FAQ', 'SHOW_FAQ')
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.webApp('💰 ' + (lang === 'en' ? 'Open Exchange' : 'Открыть Обменник'), 
+                'https://solobmen.onrender.com'),
+              ],
+              [
+                Markup.button.callback('🔒 ' + (lang === 'en' ? 'Policy' : 'Политика'), 'SHOW_POLICY'),
+                Markup.button.callback('🛠 ' + (lang === 'en' ? 'How We Work' : 'Как мы работаем'), 'SHOW_HOW')
+              ],
+              [
+                Markup.button.callback('❓ FAQ', 'SHOW_FAQ')
+              ]
             ]
-          ])
+          }
         }
       );
     } catch (err) {
       console.error('Show main menu error:', err);
+      // Fallback to simple message if photo fails
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      const lang = user?.language || 'en';
+      await ctx.reply(welcomeMessages[lang](ctx.from.first_name), {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.webApp('💰 ' + (lang === 'en' ? 'Open Exchange' : 'Открыть Обменник'), 
+              'https://solobmen.onrender.com'),
+          ],
+          [
+            Markup.button.callback('🔒 ' + (lang === 'en' ? 'Policy' : 'Политика'), 'SHOW_POLICY'),
+            Markup.button.callback('🛠 ' + (lang === 'en' ? 'How We Work' : 'Как мы работаем'), 'SHOW_HOW')
+          ],
+          [
+            Markup.button.callback('❓ FAQ', 'SHOW_FAQ')
+          ]
+        ])
+      });
     }
   };
 
@@ -340,7 +368,11 @@ A: Currently only SOL and USDT (SPL tokens).
       const user = await User.findOne({ telegramId: ctx.from.id });
       const lang = user?.language || 'en';
       
-      await ctx.deleteMessage();
+      try {
+        await ctx.deleteMessage();
+      } catch (deleteError) {
+        console.log('Could not delete message, continuing...');
+      }
       await showMainMenu(ctx, lang);
     } catch (err) {
       console.error('Back to main error:', err);
@@ -368,12 +400,31 @@ A: Currently only SOL and USDT (SPL tokens).
     console.error('Bot error:', err);
   });
 
-  // Launch bot
-  bot.launch();
+  // Launch bot with webhook for production
+  if (process.env.NODE_ENV === 'production') {
+    bot.launch({
+      webhook: {
+        domain: process.env.WEBHOOK_DOMAIN,
+        port: PORT
+      }
+    }).then(() => {
+      console.log('🤖 Bot running in production mode with webhook');
+    });
+  } else {
+    bot.launch().then(() => {
+      console.log('🤖 Bot running in development mode with polling');
+    });
+  }
 
   // Graceful shutdown
-  process.once('SIGINT', () => bot.stop('SIGINT'));
-  process.once('SIGTERM', () => bot.stop('SIGTERM'));
+  process.once('SIGINT', () => {
+    bot.stop('SIGINT');
+    server.close();
+  });
+  process.once('SIGTERM', () => {
+    bot.stop('SIGTERM');
+    server.close();
+  });
 })
 .catch(err => {
   console.error('❌ MongoDB connection error:', err);
