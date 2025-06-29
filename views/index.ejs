@@ -465,14 +465,6 @@
             </button>
           </div>
 
-          <script>
-// Авто-рефреш каждые 3 минуты (180000 мс)
-setInterval(() => {
-  fetch(window.location.origin + '/health')
-    .then(() => console.log('Keeping alive...'))
-    .catch(console.error);
-}, 180000);
-</script>
           
           <button class="btn-deposit" id="depositSolBtn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
