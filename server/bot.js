@@ -3,6 +3,7 @@ const { Telegraf } = require('telegraf');
 const mongoose = require('mongoose');
 const User = require('./models/User');
 
+// Подключение к MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -11,6 +12,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
+// Команда /start
 bot.start(async (ctx) => {
   try {
     const { id, username, first_name, last_name } = ctx.from;
@@ -36,7 +38,7 @@ bot.start(async (ctx) => {
             [
               {
                 text: '💰 Открыть обменник',
-                web_app: { url: process.env.API_BASE_URL }
+                web_app: { url: 'https://solobmen.onrender.com/' } // ← ТУТ ЖЁСТКО ПРОПИСАН URL
               }
             ],
             [
@@ -52,19 +54,26 @@ bot.start(async (ctx) => {
   }
 });
 
-// 📊 Обработка inline кнопки "Посмотреть баланс"
+// Обработка inline кнопки "Посмотреть баланс"
 bot.on('callback_query', async (ctx) => {
-  if (ctx.callbackQuery.data === 'balance') {
-    const user = await User.findOne({ telegramId: ctx.from.id });
-    if (user) {
-      await ctx.answerCbQuery();
-      await ctx.replyWithHTML(
-        `📊 Баланс:\n` +
-        `SOL: <b>${user.solBalance.toFixed(4)}</b>\n` +
-        `USDT: <b>${user.usdtBalance.toFixed(2)}</b>\n\n` +
-        `💳 Адрес депозита:\n<code>${user.depositAddress}</code>`
-      );
+  try {
+    await ctx.answerCbQuery(); // всегда вызывается СРАЗУ
+
+    if (ctx.callbackQuery.data === 'balance') {
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      if (user) {
+        await ctx.replyWithHTML(
+          `📊 Баланс:\n` +
+          `SOL: <b>${user.solBalance.toFixed(4)}</b>\n` +
+          `USDT: <b>${user.usdtBalance.toFixed(2)}</b>\n\n` +
+          `💳 Адрес депозита:\n<code>${user.depositAddress}</code>`
+        );
+      } else {
+        await ctx.reply('Пользователь не найден.');
+      }
     }
+  } catch (err) {
+    console.error('❌ Ошибка в обработке callback_query:', err);
   }
 });
 
@@ -78,8 +87,10 @@ bot.on('web_app_data', (ctx) => {
   }
 });
 
+// Обработка ошибок
 bot.catch((err) => console.error('Bot error:', err));
 
+// Запуск
 bot.launch().then(() => console.log('🤖 Бот запущен'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
