@@ -53,8 +53,27 @@ mongoose.connect(process.env.MONGODB_URI, {
 
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-  // Welcome message with Solana image and rich text
-  const welcomeMessage = (name) => `
+  // Language selection handler
+  const sendLanguageSelection = async (ctx) => {
+    try {
+      await ctx.reply('🌍 Please choose your language / Пожалуйста, выберите язык:', {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              Markup.button.callback('English 🇬🇧', 'SET_LANG_EN'),
+              Markup.button.callback('Русский 🇷🇺', 'SET_LANG_RU')
+            ]
+          ]
+        }
+      });
+    } catch (err) {
+      console.error('Language selection error:', err);
+    }
+  };
+
+  // Welcome messages in both languages
+  const welcomeMessages = {
+    en: (name) => `
 🎉 *Welcome to Solana Exchange, ${name || 'user'}!* 🎉
 
 🚀 *Why choose us?*
@@ -67,13 +86,28 @@ mongoose.connect(process.env.MONGODB_URI, {
 Minimum deposit 0.05 SOL
 Minimum deposit 5 USDT
 
-
-
 We recommend checking our Policy before trading. Happy exchanging! 💰
-  `;
+    `,
+    ru: (name) => `
+🎉 *Добро пожаловать в Solana Exchange, ${name || 'пользователь'}!* 🎉
 
-  // Policy message
-  const policyMessage = `
+🚀 *Почему выбирают нас?*
+• Лучшие курсы обмена SOL/USDT
+• 0% комиссии на все операции
+• Мгновенные транзакции в сети Solana
+• Надежный сервис с 2019 года
+
+💱 *Минимальные депозиты:*
+Минимальный депозит 0.05 SOL
+Минимальный депозит 5 USDT
+
+Рекомендуем ознакомиться с нашей Политикой перед обменом. Удачных операций! 💰
+    `
+  };
+
+  // Policy messages
+  const policyMessages = {
+    en: `
 🔒 *Our Privacy Policy & Security*
 
 At Solana Exchange, we prioritize your security:
@@ -87,12 +121,27 @@ Your funds are protected by:
 - Multi-signature wallets
 - Cold storage for 95% of assets
 - Regular security audits
+    `,
+    ru: `
+🔒 *Наша Политика Конфиденциальности и Безопасности*
 
+В Solana Exchange ваша безопасность - наш приоритет:
 
-  `;
+• Работаем исключительно в сети Solana (SPL-токены)
+• Никогда не храним ваши приватные ключи
+• Все операции через смарт-контракты
+• Соблюдаем международные крипто-регламенты
 
-  // How we work message
-  const howWeWorkMessage = `
+Ваши средства защищены:
+- Мультиподписные кошельки
+- Холодное хранение 95% активов
+- Регулярные аудиты безопасности
+    `
+  };
+
+  // How we work messages
+  const howWeWorkMessages = {
+    en: `
 🛠 *How We Work & Our Story*
 
 Founded in 2019, we migrated to Telegram to provide better service:
@@ -107,10 +156,28 @@ Our advantages:
 ✅ Best rates from 10+ liquidity providers
 ✅ Non-custodial exchange model
 ✅ Regular market analysis updates
-  `;
+    `,
+    ru: `
+🛠 *Как мы работаем и наша история*
 
-  // FAQ message
-  const faqMessage = `
+Основаны в 2019, перешли в Telegram для лучшего сервиса:
+
+• 2019: Начали как SolSwap на Google Sites
+• 2021: Запустили мобильное приложение (50k+ пользователей)
+• 2023: Полностью перешли на Telegram-ботов
+• 2024: Обработано $10M+ операций
+
+Наши преимущества:
+✅ Поддержка 24/7
+✅ Лучшие курсы от 10+ поставщиков ликвидности
+✅ Некастодиальная модель обмена
+✅ Регулярная аналитика рынка
+    `
+  };
+
+  // FAQ messages
+  const faqMessages = {
+    en: `
 ❓ *Frequently Asked Questions*
 
 *Q: What's your advantage over competitors?*
@@ -127,38 +194,88 @@ A: Typically under 50+ seconds on Solana network.
 
 *Q: Do you support other cryptocurrencies?*
 A: Currently only SOL and USDT (SPL tokens).
+    `,
+    ru: `
+❓ *Часто задаваемые вопросы*
 
+*В: Какое ваше преимущество перед конкурентами?*
+О: Мы агрегируем курсы с бирж и предлагаем вам лучшие условия без комиссий.
 
-  `;
+*В: Как долго вы работаете?*
+О: С 2019 года (более 4 лет) на различных платформах.
 
-  // Start command handler
+*В: Есть ли минимальная сумма обмена?*
+О: Да, от 5 USDT или 0.05 SOL для всех операций.
+
+*В: Как быстро проходят транзакции?*
+О: Обычно до 50 секунд в сети Solana.
+
+*В: Поддерживаете другие криптовалюты?*
+О: Пока только SOL и USDT (SPL-токены).
+    `
+  };
+
+  // Start command handler - now only sends language selection
   bot.start(async (ctx) => {
     try {
-      const { id, first_name } = ctx.from;
+      const { id } = ctx.from;
       
-      const updateData = {
-        telegramId: id,
-        lastActivity: new Date()
-      };
-
-      const user = await User.findOneAndUpdate(
+      // Initialize user without language
+      await User.findOneAndUpdate(
         { telegramId: id },
-        updateData,
+        { telegramId: id, lastActivity: new Date() },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
+      await sendLanguageSelection(ctx);
+    } catch (err) {
+      console.error('Start command error:', err);
+      ctx.reply('⚠️ An error occurred. Please try again later.');
+    }
+  });
+
+  // Language selection handlers
+  bot.action('SET_LANG_EN', async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      await User.updateOne({ telegramId: ctx.from.id }, { language: 'en' });
+      await showMainMenu(ctx, 'en');
+    } catch (err) {
+      console.error('Set EN language error:', err);
+    }
+  });
+
+  bot.action('SET_LANG_RU', async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      await User.updateOne({ telegramId: ctx.from.id }, { language: 'ru' });
+      await showMainMenu(ctx, 'ru');
+    } catch (err) {
+      console.error('Set RU language error:', err);
+    }
+  });
+
+  // Show main menu with selected language
+  const showMainMenu = async (ctx, lang) => {
+    try {
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      const name = ctx.from.first_name;
+      
+      await ctx.deleteMessage(); // Delete language selection
+      
       await ctx.replyWithPhoto(
         { url: 'https://quark.house/wp-content/uploads/2024/11/solana-1024x576.jpg' },
         {
-          caption: welcomeMessage(first_name),
+          caption: welcomeMessages[lang](name),
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
             [
-              Markup.button.webApp('💰 Open Exchange', 'https://solobmen.onrender.com'),
+              Markup.button.webApp('💰 ' + (lang === 'en' ? 'Open Exchange' : 'Открыть Обменник'), 
+                                 'https://solobmen.onrender.com'),
             ],
             [
-              Markup.button.callback('🔒 Policy', 'SHOW_POLICY'),
-              Markup.button.callback('🛠 How We Work', 'SHOW_HOW')
+              Markup.button.callback('🔒 ' + (lang === 'en' ? 'Policy' : 'Политика'), 'SHOW_POLICY'),
+              Markup.button.callback('🛠 ' + (lang === 'en' ? 'How We Work' : 'Как мы работаем'), 'SHOW_HOW')
             ],
             [
               Markup.button.callback('❓ FAQ', 'SHOW_FAQ')
@@ -167,17 +284,19 @@ A: Currently only SOL and USDT (SPL tokens).
         }
       );
     } catch (err) {
-      console.error('Start command error:', err);
-      ctx.reply('⚠️ An error occurred. Please try again later.');
+      console.error('Show main menu error:', err);
     }
-  });
+  };
 
   // Policy callback
   bot.action('SHOW_POLICY', async (ctx) => {
     try {
       await ctx.answerCbQuery();
-      await ctx.replyWithMarkdown(policyMessage, Markup.inlineKeyboard([
-        [Markup.button.callback('← Back to Main Menu', 'BACK_TO_MAIN')]
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      const lang = user?.language || 'en';
+      
+      await ctx.replyWithMarkdown(policyMessages[lang], Markup.inlineKeyboard([
+        [Markup.button.callback('← ' + (lang === 'en' ? 'Back to Main Menu' : 'Назад в меню'), 'BACK_TO_MAIN')]
       ]));
     } catch (err) {
       console.error('Policy error:', err);
@@ -188,8 +307,11 @@ A: Currently only SOL and USDT (SPL tokens).
   bot.action('SHOW_HOW', async (ctx) => {
     try {
       await ctx.answerCbQuery();
-      await ctx.replyWithMarkdown(howWeWorkMessage, Markup.inlineKeyboard([
-        [Markup.button.callback('← Back to Main Menu', 'BACK_TO_MAIN')]
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      const lang = user?.language || 'en';
+      
+      await ctx.replyWithMarkdown(howWeWorkMessages[lang], Markup.inlineKeyboard([
+        [Markup.button.callback('← ' + (lang === 'en' ? 'Back to Main Menu' : 'Назад в меню'), 'BACK_TO_MAIN')]
       ]));
     } catch (err) {
       console.error('How we work error:', err);
@@ -200,8 +322,11 @@ A: Currently only SOL and USDT (SPL tokens).
   bot.action('SHOW_FAQ', async (ctx) => {
     try {
       await ctx.answerCbQuery();
-      await ctx.replyWithMarkdown(faqMessage, Markup.inlineKeyboard([
-        [Markup.button.callback('← Back to Main Menu', 'BACK_TO_MAIN')]
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      const lang = user?.language || 'en';
+      
+      await ctx.replyWithMarkdown(faqMessages[lang], Markup.inlineKeyboard([
+        [Markup.button.callback('← ' + (lang === 'en' ? 'Back to Main Menu' : 'Назад в меню'), 'BACK_TO_MAIN')]
       ]));
     } catch (err) {
       console.error('FAQ error:', err);
@@ -212,26 +337,11 @@ A: Currently only SOL and USDT (SPL tokens).
   bot.action('BACK_TO_MAIN', async (ctx) => {
     try {
       await ctx.answerCbQuery();
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      const lang = user?.language || 'en';
+      
       await ctx.deleteMessage();
-      await ctx.replyWithPhoto(
-        { url: 'https://quark.house/wp-content/uploads/2024/11/solana-1024x576.jpg' },
-        {
-          caption: welcomeMessage(ctx.from.first_name),
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.webApp('💰 Open Exchange', 'https://solobmen.onrender.com'),
-            ],
-            [
-              Markup.button.callback('🔒 Policy', 'SHOW_POLICY'),
-              Markup.button.callback('🛠 How We Work', 'SHOW_HOW')
-            ],
-            [
-              Markup.button.callback('❓ FAQ', 'SHOW_FAQ')
-            ]
-          ])
-        }
-      );
+      await showMainMenu(ctx, lang);
     } catch (err) {
       console.error('Back to main error:', err);
     }
@@ -242,7 +352,12 @@ A: Currently only SOL and USDT (SPL tokens).
     try {
       const data = JSON.parse(ctx.webAppData.data);
       console.log('WebApp data received:', data);
-      await ctx.reply('✅ Transaction data received! Processing your exchange...');
+      const user = await User.findOne({ telegramId: ctx.from.id });
+      const lang = user?.language || 'en';
+      
+      await ctx.reply(lang === 'en' 
+        ? '✅ Transaction data received! Processing your exchange...' 
+        : '✅ Данные транзакции получены! Обрабатываем ваш обмен...');
     } catch (err) {
       console.error('WebApp error:', err);
     }
